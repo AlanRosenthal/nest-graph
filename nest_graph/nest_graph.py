@@ -5,13 +5,18 @@ import click
 import zipfile
 import os
 import json
-
+import csv
 
 NEST_THERMOSTATS_FOLDER = os.path.join("NEST_DATA", "Nest", "thermostats")
 
 
-def parse_summary_json(data):
-    output = {"events": [], "cycles": []}
+def parse_summary_json(file):
+    events = []
+    cycles = []
+
+    print(f"Reading from: {file}")
+    with open(file) as f:
+        data = json.load(f)
 
     # Json file contains top level keys for each day
     for day in data:
@@ -26,9 +31,9 @@ def parse_summary_json(data):
             if "ecoAutoAway" in x:
                 value = x["ecoAutoAway"]["targets"]["heatingTarget"]
 
-            output["events"].append(
+            events.append(
                 {
-                    "start": x["startTs"],
+                    "time": x["startTs"],
                     "duration": x["duration"],
                     "type": x["eventType"],
                     "value": value,
@@ -37,31 +42,54 @@ def parse_summary_json(data):
 
         # Save each cycle
         for x in data[day]["cycles"]:
-            output["cycles"].append({"start": x["startTs"], "duration": x["duration"]})
+            cycles.append({"time": x["startTs"], "duration": x["duration"]})
 
-    return output
+    return (events, cycles)
 
 
-def print_summary_data(data):
+def print_data(events, cycles, sensors):
     print("Events:")
-    for x in data["events"]:
-        print(
-            f"\tstart: {x['start']} duration: {x['duration']} type: {x['type']} value: {x['value']}"
-        )
+    for x in events:
+        print(x)
 
     print("Cycles:")
-    for x in data["cycles"]:
-        print(f"\tstart: {x['start']} duration: {x['duration']}")
+    for x in cycles:
+        print(x)
+
+    print("Sensors:")
+    for x in sensors:
+        print(x)
+
+
+def parse_sensors_csv(file):
+    sensors = []
+
+    print(f"Reading from: {file}")
+    with open(file) as f:
+        data = csv.DictReader(f)
+
+        for x in data:
+            date = x["Date"]
+            time_offset = x["Time"]
+            sensors.append(
+                {
+                    "time": f"{date}T{time_offset}:00Z",
+                    "temp": x["avg(temp)"],
+                    "humidity": x["avg(humidity)"],
+                }
+            )
+
+    return sensors
 
 
 def parse_data(folder, year, month):
     summary_file = os.path.join(folder, year, month, f"{year}-{month}-summary.json")
-    print(f"Reading from: {summary_file}")
-    with open(summary_file) as f:
-        json_data = json.load(f)
-        summary_data = parse_summary_json(json_data)
+    (events, cycles) = parse_summary_json(summary_file)
 
-    print_summary_data(summary_data)
+    sensor_file = os.path.join(folder, year, month, f"{year}-{month}-sensors.csv")
+    sensors = parse_sensors_csv(sensor_file)
+
+    print_data(events, cycles, sensors)
 
 
 @click.command()
