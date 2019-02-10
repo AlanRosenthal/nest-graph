@@ -7,8 +7,6 @@ import os
 import json
 import csv
 
-NEST_THERMOSTATS_FOLDER = os.path.join("NEST_DATA", "Nest", "thermostats")
-
 
 def parse_summary_json(file):
     events = []
@@ -102,7 +100,7 @@ def main(archive, extract_to, thermostat_id, date):
     with zipfile.ZipFile(archive, "r") as zip_ref:
         zip_ref.extractall(extract_to)
 
-    thermostats_folder = os.path.join(extract_to, NEST_THERMOSTATS_FOLDER)
+    thermostats_folder = os.path.join(extract_to, "NEST_DATA", "Nest", "thermostats")
     if thermostat_id is None:
         print("Must use the --thermostat-id flag")
         print("List of available thermostats:")
@@ -113,7 +111,7 @@ def main(archive, extract_to, thermostat_id, date):
     selected_thermostat_folder = os.path.join(thermostats_folder, thermostat_id)
 
     available_months = []
-    if date is None:
+    if not date:
         for year in os.listdir(selected_thermostat_folder):
             for month in os.listdir(os.path.join(selected_thermostat_folder, year)):
                 available_months.append((year, month))
