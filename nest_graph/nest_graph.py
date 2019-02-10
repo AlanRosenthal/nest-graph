@@ -6,6 +6,8 @@ import zipfile
 import os
 import json
 import csv
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 def parse_summary_json(file):
@@ -87,7 +89,7 @@ def parse_data(folder, year, month):
     sensor_file = os.path.join(folder, year, month, f"{year}-{month}-sensors.csv")
     sensors = parse_sensors_csv(sensor_file)
 
-    print_data(events, cycles, sensors)
+    return (events, cycles, sensors)
 
 
 @click.command()
@@ -97,6 +99,11 @@ def parse_data(folder, year, month):
 @click.option("--thermostat-id", help="Extract to folder", default=None)
 @click.option("--date", help="date year,month", nargs=2, default=None)
 def main(archive, extract_to, thermostat_id, date):
+    x = np.arange(0, 5, 0.1)
+    y = np.sin(x)
+    plt.plot(x, y)
+    plt.show()
+
     with zipfile.ZipFile(archive, "r") as zip_ref:
         zip_ref.extractall(extract_to)
 
@@ -118,8 +125,18 @@ def main(archive, extract_to, thermostat_id, date):
     else:
         available_months.append(date)
 
+    events = []
+    cycles = []
+    sensors = []
     for year, month in available_months:
-        parse_data(selected_thermostat_folder, year, month)
+        (e, c, s) = parse_data(selected_thermostat_folder, year, month)
+        events.extend(e)
+        cycles.extend(c)
+        sensors.extend(s)
+
+    print(len(events))
+    print(len(cycles))
+    print(len(sensors))
 
 
 if __name__ == "__main__":

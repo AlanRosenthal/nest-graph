@@ -10,6 +10,6 @@ setup(
     packages=["nest_graph"],
     license="MIT",
     long_description=open("README.txt").read(),
-    install_requires=["click"],
+    install_requires=["click", "matplotlib", "numpy"],
     entry_points={"console_scripts": ["nest-graph=nest_graph.nest_graph:main"]},
 )
