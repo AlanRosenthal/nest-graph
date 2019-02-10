@@ -8,6 +8,7 @@ import json
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
+import dateutil.parser
 
 
 def parse_summary_json(file):
@@ -31,18 +32,24 @@ def parse_summary_json(file):
             if "ecoAutoAway" in x:
                 value = x["ecoAutoAway"]["targets"]["heatingTarget"]
 
+            # EVENT_TYPE_AWAY has x.ecoAway.targets.heatingTarget
+            if "ecoAway" in x:
+                value = x["ecoAway"]["targets"]["heatingTarget"]
+
             events.append(
                 {
-                    "time": x["startTs"],
+                    "time": dateutil.parser.parse(x["startTs"]),
                     "duration": x["duration"],
                     "type": x["eventType"],
-                    "value": value,
+                    "value": float(value) * 1.8 + 32,
                 }
             )
 
         # Save each cycle
         for x in data[day]["cycles"]:
-            cycles.append({"time": x["startTs"], "duration": x["duration"]})
+            cycles.append(
+                {"time": dateutil.parser.parse(x["startTs"]), "duration": x["duration"]}
+            )
 
     return (events, cycles)
 
@@ -71,13 +78,15 @@ def parse_sensors_csv(file):
         for x in data:
             date = x["Date"]
             time_offset = x["Time"]
-            sensors.append(
-                {
-                    "time": f"{date}T{time_offset}:00Z",
-                    "temp": x["avg(temp)"],
-                    "humidity": x["avg(humidity)"],
-                }
-            )
+            temp = x["avg(temp)"]
+            if temp is not "":
+                sensors.append(
+                    {
+                        "time": dateutil.parser.parse(f"{date}T{time_offset}:00Z"),
+                        "temp": float(x["avg(temp)"]) * 1.8 + 32,
+                        "humidity": float(x["avg(humidity)"]),
+                    }
+                )
 
     return sensors
 
@@ -99,11 +108,6 @@ def parse_data(folder, year, month):
 @click.option("--thermostat-id", help="Extract to folder", default=None)
 @click.option("--date", help="date year,month", nargs=2, default=None)
 def main(archive, extract_to, thermostat_id, date):
-    x = np.arange(0, 5, 0.1)
-    y = np.sin(x)
-    plt.plot(x, y)
-    plt.show()
-
     with zipfile.ZipFile(archive, "r") as zip_ref:
         zip_ref.extractall(extract_to)
 
@@ -134,9 +138,16 @@ def main(archive, extract_to, thermostat_id, date):
         cycles.extend(c)
         sensors.extend(s)
 
-    print(len(events))
-    print(len(cycles))
-    print(len(sensors))
+    temp = [x["temp"] for x in sensors]
+    time = [x["time"] for x in sensors]
+
+    x = np.array(time)
+    y = np.array(temp)
+    # sort array by time
+    p = np.argsort(x)
+
+    plt.plot(x[p], y[p])
+    plt.show()
 
 
 if __name__ == "__main__":
