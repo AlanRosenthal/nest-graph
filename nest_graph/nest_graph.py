@@ -7,9 +7,11 @@ import os
 import json
 import csv
 import numpy as np
-import matplotlib.pyplot as plt
 import dateutil.parser
-
+import datetime
+import pandas as pd
+import plotly
+import plotly.graph_objs as go
 
 def parse_summary_json(file):
     events = []
@@ -36,10 +38,12 @@ def parse_summary_json(file):
             if "ecoAway" in x:
                 value = x["ecoAway"]["targets"]["heatingTarget"]
 
+            time = pd.to_datetime(x["startTs"])
+            duration = pd.to_timedelta(x["duration"])
             events.append(
                 {
-                    "time": dateutil.parser.parse(x["startTs"]),
-                    "duration": x["duration"],
+                    "time": time,
+                    "endtime": time + duration,
                     "type": x["eventType"],
                     "value": float(value) * 1.8 + 32,
                 }
@@ -47,8 +51,13 @@ def parse_summary_json(file):
 
         # Save each cycle
         for x in data[day]["cycles"]:
+            time = pd.to_datetime(x["startTs"])
+            duration = pd.to_timedelta(x["duration"])
             cycles.append(
-                {"time": dateutil.parser.parse(x["startTs"]), "duration": x["duration"]}
+                {
+                    "time": time,
+                    "endtime": time + duration,
+                }
             )
 
     return (events, cycles)
@@ -84,7 +93,6 @@ def parse_sensors_csv(file):
                     {
                         "time": dateutil.parser.parse(f"{date}T{time_offset}:00Z"),
                         "temp": float(x["avg(temp)"]) * 1.8 + 32,
-                        "humidity": float(x["avg(humidity)"]),
                     }
                 )
 
@@ -99,6 +107,95 @@ def parse_data(folder, year, month):
     sensors = parse_sensors_csv(sensor_file)
 
     return (events, cycles, sensors)
+
+
+def graph_data(events, cycles, sensors):
+    data = []
+
+    sensor_time = [x["time"] for x in sensors]
+    sensor_temp = [x["temp"] for x in sensors]
+    x = np.array(sensor_time)
+    y = np.array(sensor_temp)
+    p = np.argsort(x) # sort array by time
+    data.append(go.Scattergl(x=x[p], y=y[p]))
+
+    shapes = []
+    for x in cycles:
+        shapes.append(
+        {
+            'type': 'rect',
+            # x-reference is assigned to the x-values
+            'xref': 'x',
+            # y-reference is assigned to the plot paper [0,1]
+            'yref': 'paper',
+            'x0': x["time"],
+            'y0': 0,
+            'x1': x["endtime"],
+            'y1': 1,
+            'fillcolor': 'orange',
+            'opacity': 0.2,
+            'line': {
+                'width': 0,
+            }
+        })
+    print(len(cycles))
+
+    for x in events:
+        shapes.append(
+            {
+                'type': 'line',
+                'x0': x["time"],
+                'y0': x["value"],
+                'x1': x["endtime"],
+                'y1': x["value"],
+                'opacity': 0.7,
+                'line': {
+                    'color': 'red',
+                    'width': 2.5,
+                },
+            }
+        )
+    print(len(events))
+
+    layout = {
+        "shapes": shapes,
+        "title": "Nest Data",
+        "xaxis": dict(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=1,
+                        label='1d',
+                        step='day',
+                        stepmode='backward'),
+                    dict(count=7,
+                        label='1w',
+                        step='day',
+                        stepmode='backward'),
+                    dict(count=14,
+                        label='2w',
+                        step='day',
+                        stepmode='backward'),
+                    dict(count=1,
+                        label='1m',
+                        step='month',
+                        stepmode='backward'),
+                    dict(count=1,
+                        label='1y',
+                        step='year',
+                        stepmode='backward'),
+                    dict(step='all')
+                ])
+            ),
+            rangeslider=dict(
+                visible = True
+            ),
+            type='date'
+        )
+    }
+
+    fig = dict(data=data, layout=layout)
+    plotly.offline.plot(fig)
+
 
 
 @click.command()
@@ -138,16 +235,7 @@ def main(archive, extract_to, thermostat_id, date):
         cycles.extend(c)
         sensors.extend(s)
 
-    temp = [x["temp"] for x in sensors]
-    time = [x["time"] for x in sensors]
-
-    x = np.array(time)
-    y = np.array(temp)
-    # sort array by time
-    p = np.argsort(x)
-
-    plt.plot(x[p], y[p])
-    plt.show()
+    graph_data(events, cycles, sensors)
 
 
 if __name__ == "__main__":
