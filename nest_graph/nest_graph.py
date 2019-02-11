@@ -13,6 +13,7 @@ import pandas as pd
 import plotly
 import plotly.graph_objs as go
 
+
 def parse_summary_json(file):
     events = []
     cycles = []
@@ -48,17 +49,20 @@ def parse_summary_json(file):
                     "value": float(value) * 1.8 + 32,
                 }
             )
+            # events.append(
+            #     {
+            #         "time": time + duration,
+            #         "endtime": time + duration,
+            #         "type": x["eventType"],
+            #         "value": float(value) * 1.8 + 32,
+            #     }
+            # )
 
         # Save each cycle
         for x in data[day]["cycles"]:
             time = pd.to_datetime(x["startTs"])
             duration = pd.to_timedelta(x["duration"])
-            cycles.append(
-                {
-                    "time": time,
-                    "endtime": time + duration,
-                }
-            )
+            cycles.append({"time": time, "endtime": time + duration})
 
     return (events, cycles)
 
@@ -111,91 +115,78 @@ def parse_data(folder, year, month):
 
 def graph_data(events, cycles, sensors):
     data = []
+    shapes = []
 
     sensor_time = [x["time"] for x in sensors]
     sensor_temp = [x["temp"] for x in sensors]
     x = np.array(sensor_time)
     y = np.array(sensor_temp)
-    p = np.argsort(x) # sort array by time
-    data.append(go.Scattergl(x=x[p], y=y[p]))
+    p = np.argsort(x)  # sort array by time
+    data.append(go.Scatter(x=x[p], y=y[p]))
 
-    shapes = []
+    # sensor_time = [x["time"] for x in events]
+    # sensor_temp = [x["value"] for x in events]
+    # x = np.array(sensor_time)
+    # y = np.array(sensor_temp)
+    # p = np.argsort(x)  # sort array by time
+    # data.append(go.Scatter(x=x[p], y=y[p]))
+
     for x in cycles:
         shapes.append(
-        {
-            'type': 'rect',
-            # x-reference is assigned to the x-values
-            'xref': 'x',
-            # y-reference is assigned to the plot paper [0,1]
-            'yref': 'paper',
-            'x0': x["time"],
-            'y0': 0,
-            'x1': x["endtime"],
-            'y1': 1,
-            'fillcolor': 'orange',
-            'opacity': 0.2,
-            'line': {
-                'width': 0,
+            {
+                "type": "rect",
+                # x-reference is assigned to the x-values
+                "xref": "x",
+                # y-reference is assigned to the plot paper [0,1]
+                "yref": "paper",
+                "x0": x["time"],
+                "y0": 0,
+                "x1": x["endtime"],
+                "y1": 1,
+                "fillcolor": "orange",
+                "opacity": 0.2,
+                "line": {"width": 0},
             }
-        })
-    print(len(cycles))
+        )
 
     for x in events:
         shapes.append(
             {
-                'type': 'line',
-                'x0': x["time"],
-                'y0': x["value"],
-                'x1': x["endtime"],
-                'y1': x["value"],
-                'opacity': 0.7,
-                'line': {
-                    'color': 'red',
-                    'width': 2.5,
-                },
+                "type": "line",
+                "x0": x["time"],
+                "y0": x["value"],
+                "x1": x["endtime"],
+                "y1": x["value"],
+                "line": {"color": "red", "width": 1},
             }
         )
-    print(len(events))
 
     layout = {
         "shapes": shapes,
         "title": "Nest Data",
-        "xaxis": dict(
-            rangeselector=dict(
-                buttons=list([
-                    dict(count=1,
-                        label='1d',
-                        step='day',
-                        stepmode='backward'),
-                    dict(count=7,
-                        label='1w',
-                        step='day',
-                        stepmode='backward'),
-                    dict(count=14,
-                        label='2w',
-                        step='day',
-                        stepmode='backward'),
-                    dict(count=1,
-                        label='1m',
-                        step='month',
-                        stepmode='backward'),
-                    dict(count=1,
-                        label='1y',
-                        step='year',
-                        stepmode='backward'),
-                    dict(step='all')
-                ])
-            ),
-            rangeslider=dict(
-                visible = True
-            ),
-            type='date'
-        )
+        "xaxis": {
+            "rangeselector": {
+                "buttons": [
+                    {"count": 1, "label": "1d", "step": "day", "stepmode": "backward"},
+                    {"count": 7, "label": "1w", "step": "day", "stepmode": "backward"},
+                    {"count": 14, "label": "2w", "step": "day", "stepmode": "backward"},
+                    {
+                        "count": 1,
+                        "label": "1m",
+                        "step": "month",
+                        "stepmode": "backward",
+                    },
+                    {"count": 1, "label": "1y", "step": "year", "stepmode": "backward"},
+                    {"step": "all"},
+                ]
+            },
+            "rangeslider": {"visible": True},
+            "type": "date",
+        },
     }
 
     fig = dict(data=data, layout=layout)
     plotly.offline.plot(fig)
-
 
 
 @click.command()
