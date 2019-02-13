@@ -105,3 +105,6 @@ venv.bak/
 
 # extracted data archive
 archive/
+
+# temp graph
+temp-plot.html
